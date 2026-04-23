@@ -1,0 +1,50 @@
+# Node.js Authentication Backend Plan
+
+We will create a Node.js backend using Express to handle user authentication (Sign Up and Log In). We'll use SQLite as a simple, file-based database so it requires no extra database server setup. 
+
+## Proposed Changes
+
+### Backend Infrastructure
+We will create a new `backend` directory alongside the frontend folder.
+
+#### [NEW] `backend/package.json`
+Initialize a new Node.js project with `express`, `cors`, `bcrypt` (for password hashing), `jsonwebtoken` (for auth tokens), and `sqlite3`.
+
+#### [NEW] `backend/server.js`
+The main Express application entry point. It will configure middleware (CORS, JSON parsing) and mount the authentication routes.
+
+#### [NEW] `backend/db.js`
+Sets up the SQLite database connection and creates the `users` table if it doesn't exist.
+- Table: `users` (id, name, email, password, role)
+
+#### [NEW] `backend/routes/auth.js`
+The authentication endpoints:
+- `POST /api/auth/signup`: Accepts user details, hashes the password, and saves the user.
+- `POST /api/auth/login`: Verifies user credentials and returns a JWT token.
+
+---
+
+### Frontend Integration
+
+#### [NEW] `aasra-home-hub-main/src/lib/api.ts`
+Axios or fetch-based utility to make calls to `http://localhost:5000/api/auth`.
+
+#### [MODIFY] [aasra-home-hub-main/src/pages/SignUp.tsx](file:///c:/Users/ZAIN/Downloads/aasra-home-hub-main%20%281%29/aasra-home-hub-main/src/pages/SignUp.tsx)
+Update to call `POST /api/auth/signup` and handle success/error states.
+
+#### [MODIFY] [aasra-home-hub-main/src/pages/Login.tsx](file:///c:/Users/ZAIN/Downloads/aasra-home-hub-main%20%281%29/aasra-home-hub-main/src/pages/Login.tsx)
+Update to call `POST /api/auth/login`, save the JWT token to local storage, and redirect the user upon success.
+
+## User Review Required
+
+> [!NOTE]
+> I have chosen SQLite for the database because it's portable and requires zero setup on your end. If you prefer MongoDB, PostgreSQL, or another database, please let me know!
+
+## Verification Plan
+### Manual Verification
+- Start the backend on port 5000.
+- Start the frontend.
+- Attempt to sign up a new user via the UI.
+- Verify the user is inserted into the `users` table.
+- Attempt to log in with the new credentials.
+- Verify a JWT is returned and the user is redirected to the dashboard.
