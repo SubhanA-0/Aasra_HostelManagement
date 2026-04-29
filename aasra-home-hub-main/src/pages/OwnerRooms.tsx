@@ -7,7 +7,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Trash2, Upload, Building2, ImagePlus, X } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Plus, Trash2, Upload, Building2, ImagePlus, X, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Room } from "@/data/mockRooms";
 import api from "@/lib/api";
@@ -25,34 +37,46 @@ const emptyRoom = {
   imagePreviews: [] as string[],
 };
 
+type EditForm = {
+  roomNumber: string;
+  roomType: Room["roomType"];
+  price: number;
+  capacity: number;
+  amenities: string[];
+};
+
 const OwnerRooms = () => {
   const { toast } = useToast();
-  const [rooms, setRooms] = useState<Room[]>([]);
+  const [rooms, setRooms] = useState<(Room & { currentOccupancy?: number })[]>([]);
   const [form, setForm] = useState(emptyRoom);
   const [showForm, setShowForm] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch rooms from backend on mount
+  // Edit state
+  const [editRoom, setEditRoom] = useState<(Room & { currentOccupancy?: number }) | null>(null);
+  const [editForm, setEditForm] = useState<EditForm | null>(null);
+  const [editError, setEditError] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
   useEffect(() => {
     api.get("/rooms")
       .then((res) => {
         const backendRooms = (res.data.rooms || []).map((r: any) => ({
           id: String(r.id),
-          hostelName: "",
+          hostelName: r.hostel_name || "",
           roomNumber: r.room_number,
           roomType: r.room_type as Room["roomType"],
           price: r.rate,
           capacity: r.capacity,
-          amenities: [],
+          currentOccupancy: r.current_occupancy || 0,
+          amenities: r.amenities || [],
           description: "",
           images: ["/placeholder.svg"],
           available: r.status === "available",
         }));
         setRooms(backendRooms);
       })
-      .catch(() => {
-        // Fallback: show empty state
-      });
+      .catch(() => {});
   }, []);
 
   const handleAmenityToggle = (amenity: string) => {
@@ -62,6 +86,24 @@ const OwnerRooms = () => {
         ? prev.amenities.filter((a) => a !== amenity)
         : [...prev.amenities, amenity],
     }));
+  };
+
+  const handleRoomTypeChange = (v: string) => {
+    let cap = form.capacity;
+    if (v === "Single") cap = 1;
+    if (v === "Double") cap = 2;
+    if (v === "Triple") cap = 3;
+    setForm({ ...form, roomType: v as any, capacity: cap });
+  };
+
+  const handleEditRoomTypeChange = (v: string) => {
+    if (!editForm) return;
+    let cap = editForm.capacity;
+    if (v === "Single") cap = 1;
+    if (v === "Double") cap = 2;
+    if (v === "Triple") cap = 3;
+    setEditForm({ ...editForm, roomType: v as any, capacity: cap });
+    setEditError("");
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -85,19 +127,19 @@ const OwnerRooms = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.roomNumber || !form.price) {
-      toast({ title: "Please fill all required fields", variant: "destructive" });
+    if (!form.hostelName || !form.roomNumber || !form.price) {
+      toast({ title: "Please fill all required fields (Hostel Name, Room Number, Price)", variant: "destructive" });
       return;
     }
-
     try {
       const response = await api.post("/rooms", {
+        hostel_name: form.hostelName,
         room_number: form.roomNumber,
         room_type: form.roomType,
         capacity: form.capacity,
         rate: form.price,
+        amenities: form.amenities,
       });
-
       const r = response.data.room;
       const newRoom: Room = {
         id: String(r.id),
@@ -120,9 +162,58 @@ const OwnerRooms = () => {
     }
   };
 
-  const handleDelete = (id: string) => {
-    setRooms((prev) => prev.filter((r) => r.id !== id));
-    toast({ title: "Room removed" });
+  const openEdit = (room: Room & { currentOccupancy?: number }) => {
+    setEditRoom(room);
+    setEditForm({
+      roomNumber: room.roomNumber,
+      roomType: room.roomType,
+      price: room.price,
+      capacity: room.capacity,
+      amenities: [...room.amenities],
+    });
+    setEditError("");
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editRoom || !editForm) return;
+    const occupancy = editRoom.currentOccupancy || 0;
+    if (editForm.capacity < occupancy) {
+      setEditError(`Cannot set capacity to ${editForm.capacity}. There are currently ${occupancy} student(s) in this room.`);
+      return;
+    }
+    setIsSaving(true);
+    try {
+      await api.put(`/rooms/${editRoom.id}`, {
+        room_number: editForm.roomNumber,
+        room_type: editForm.roomType,
+        capacity: editForm.capacity,
+        rate: editForm.price,
+        amenities: editForm.amenities,
+      });
+      setRooms((prev) => prev.map((r) =>
+        r.id === editRoom.id
+          ? { ...r, roomNumber: editForm.roomNumber, roomType: editForm.roomType, capacity: editForm.capacity, price: editForm.price, amenities: editForm.amenities }
+          : r
+      ));
+      setEditRoom(null);
+      setEditForm(null);
+      toast({ title: "Room updated successfully!" });
+    } catch (err: any) {
+      const msg = err.response?.data?.message || "Failed to update room";
+      setEditError(msg);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await api.delete(`/rooms/${id}`);
+      setRooms((prev) => prev.filter((r) => r.id !== id));
+      toast({ title: "Room removed and students deallocated" });
+    } catch {
+      toast({ title: "Failed to delete room", variant: "destructive" });
+    }
   };
 
   return (
@@ -158,29 +249,30 @@ const OwnerRooms = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>Room Type</Label>
-                  <Select value={form.roomType} onValueChange={(v) => setForm({ ...form, roomType: v as Room["roomType"] })}>
+                  <Select value={form.roomType} onValueChange={handleRoomTypeChange}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Single">Single</SelectItem>
                       <SelectItem value="Double">Double</SelectItem>
                       <SelectItem value="Triple">Triple</SelectItem>
+                      <SelectItem value="Custom">Custom</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="price">Monthly Rent (₹) *</Label>
+                  <Label htmlFor="price">Monthly Rent (PKR) *</Label>
                   <Input id="price" type="number" placeholder="e.g. 5000" value={form.price || ""} onChange={(e) => setForm({ ...form, price: Number(e.target.value) })} />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="capacity">Capacity</Label>
-                  <Input id="capacity" type="number" min={1} max={6} value={form.capacity} onChange={(e) => setForm({ ...form, capacity: Number(e.target.value) })} />
-                </div>
+                {form.roomType === "Custom" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="capacity">Capacity</Label>
+                    <Input id="capacity" type="number" min={1} max={10} value={form.capacity} onChange={(e) => setForm({ ...form, capacity: Number(e.target.value) })} />
+                  </div>
+                )}
                 <div className="space-y-2 md:col-span-2">
                   <Label htmlFor="description">Description</Label>
                   <Textarea id="description" placeholder="Describe the room..." value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
                 </div>
-
-                {/* Image Upload */}
                 <div className="space-y-3 md:col-span-2">
                   <Label>Room Photos (max 5)</Label>
                   <div className="flex flex-wrap gap-3">
@@ -202,7 +294,6 @@ const OwnerRooms = () => {
                   <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} />
                   <p className="text-xs text-muted-foreground">JPG, PNG up to 5MB each</p>
                 </div>
-
                 <div className="space-y-3 md:col-span-2">
                   <Label>Amenities</Label>
                   <div className="flex flex-wrap gap-4">
@@ -253,10 +344,35 @@ const OwnerRooms = () => {
                   )}
                 </div>
                 <div className="flex items-center justify-between">
-                  <p className="font-display text-xl font-bold text-primary">₹{room.price.toLocaleString()}<span className="text-xs text-muted-foreground font-normal">/mo</span></p>
-                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleDelete(room.id)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <p className="font-display text-xl font-bold text-primary">PKR {room.price.toLocaleString()}<span className="text-xs text-muted-foreground font-normal">/mo</span></p>
+                  <div className="flex items-center gap-1">
+                    {/* Edit Button */}
+                    <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary hover:bg-primary/10" onClick={() => openEdit(room)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    {/* Delete Button */}
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the room and automatically deallocate any students currently assigned to it.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleDelete(room.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                            Delete Room
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -271,6 +387,125 @@ const OwnerRooms = () => {
           </div>
         )}
       </div>
+
+      {/* Edit Room Dialog */}
+      <Dialog open={!!editRoom} onOpenChange={(open) => { if (!open) { setEditRoom(null); setEditForm(null); setEditError(""); } }}>
+        <DialogContent className="sm:max-w-[550px]">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl flex items-center gap-2">
+              <Pencil className="h-5 w-5 text-primary" /> Edit Room
+            </DialogTitle>
+            {editRoom && (
+              <p className="text-sm text-muted-foreground pt-1">
+                Editing <span className="font-semibold text-foreground">{editRoom.hostelName}</span> — hostel name cannot be changed.
+              </p>
+            )}
+          </DialogHeader>
+
+          {editForm && editRoom && (
+            <div className="grid gap-5 py-2">
+              <div className="space-y-2">
+                <Label htmlFor="edit-roomNumber">Room Number</Label>
+                <Input
+                  id="edit-roomNumber"
+                  value={editForm.roomNumber}
+                  onChange={(e) => setEditForm({ ...editForm, roomNumber: e.target.value })}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Room Type</Label>
+                  <Select value={editForm.roomType} onValueChange={handleEditRoomTypeChange}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Single">Single</SelectItem>
+                      <SelectItem value="Double">Double</SelectItem>
+                      <SelectItem value="Triple">Triple</SelectItem>
+                      <SelectItem value="Custom">Custom</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-capacity">
+                    Capacity
+                    {editRoom.currentOccupancy ? (
+                      <span className="ml-2 text-xs font-normal text-muted-foreground">({editRoom.currentOccupancy} currently occupied)</span>
+                    ) : null}
+                  </Label>
+                  <Input
+                    id="edit-capacity"
+                    type="number"
+                    min={editRoom.currentOccupancy || 1}
+                    max={20}
+                    value={editForm.capacity}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setEditForm({ ...editForm, capacity: val });
+                      if (val < (editRoom.currentOccupancy || 0)) {
+                        setEditError(`Cannot set capacity below current occupancy (${editRoom.currentOccupancy}).`);
+                      } else {
+                        setEditError("");
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-price">Monthly Rent (PKR)</Label>
+                <Input
+                  id="edit-price"
+                  type="number"
+                  value={editForm.price || ""}
+                  onChange={(e) => setEditForm({ ...editForm, price: Number(e.target.value) })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Amenities</Label>
+                <div className="flex flex-wrap gap-3">
+                  {allAmenities.map((a) => (
+                    <label key={a} className="flex items-center gap-2 cursor-pointer text-sm">
+                      <Checkbox
+                        checked={editForm.amenities.includes(a)}
+                        onCheckedChange={() => {
+                          setEditForm((prev) => {
+                            if (!prev) return prev;
+                            return {
+                              ...prev,
+                              amenities: prev.amenities.includes(a)
+                                ? prev.amenities.filter((x) => x !== a)
+                                : [...prev.amenities, a],
+                            };
+                          });
+                        }}
+                      />
+                      {a}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {editError && (
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">
+                  <span>⚠️</span>
+                  <span>{editError}</span>
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-2">
+                <Button className="flex-1" onClick={handleSaveEdit} disabled={isSaving || !!editError}>
+                  {isSaving ? "Saving..." : "Save Changes"}
+                </Button>
+                <Button variant="outline" className="flex-1" onClick={() => { setEditRoom(null); setEditForm(null); setEditError(""); }}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

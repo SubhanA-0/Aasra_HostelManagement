@@ -35,17 +35,31 @@ const StudentProfile = () => {
           name: u.name,
           email: u.email,
           phone: u.phone || "",
+          address: u.address || "Not Provided",
+          university: u.university || "Not Provided",
+          emergencyContact: u.emergency_contact || "Not Provided",
+          emergencyName: u.emergency_name || "Not Provided",
           studentId: `STU-${u.id.toString().padStart(4, '0')}`,
         }));
       })
-      .catch(() => toast({ title: "Failed to load profile", variant: "destructive" }))
+      .catch((error) => {
+        console.error("Failure in /auth/me:", error);
+        toast({ title: "Failed to load profile", description: error?.response?.data?.message || error.message, variant: "destructive" });
+      })
       .finally(() => setIsLoading(false));
   }, []);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const payload = { email: profile.email, phone: profile.phone };
+      const payload = { 
+        email: profile.email, 
+        phone: profile.phone,
+        address: profile.address,
+        university: profile.university,
+        emergencyContact: profile.emergencyContact,
+        emergencyName: profile.emergencyName
+      };
       await api.put('/auth/profile', payload);
       setEditing(false);
       toast({ title: "Profile updated successfully!" });

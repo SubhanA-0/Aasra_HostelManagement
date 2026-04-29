@@ -54,7 +54,7 @@ const PaymentTracking = () => {
         }));
         setPayments(rows);
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const filtered = payments.filter((p) => {
@@ -75,12 +75,12 @@ const PaymentTracking = () => {
     setProcessingId(id);
     try {
       const res = await api.put(`/payments/${id}/pay`, { paymentMethod: selectedMethod });
-      setPayments(prev => prev.map(p => 
+      setPayments(prev => prev.map(p =>
         p.id === id ? { ...p, status: res.data.status, receiptId: res.data.receipt_id || p.receiptId } : p
       ));
-      toast({ 
-        title: selectedMethod === 'card' ? "Payment Successful" : "Bank Challan Generated", 
-        description: selectedMethod === "card" ? "Your fee has been securely processed natively." : "Please download and deposit the challan at the bank branch." 
+      toast({
+        title: selectedMethod === 'card' ? "Payment Successful" : "Bank Challan Generated",
+        description: selectedMethod === "card" ? "Your fee has been securely processed natively." : "Please download and deposit the challan at the bank branch."
       });
       setSelectedMethod(null);
     } catch (err) {
@@ -107,8 +107,8 @@ const PaymentTracking = () => {
                 <IndianRupee className="h-5 w-5 text-green-700" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Collected</p>
-                <p className="font-display text-2xl font-bold text-foreground">₹{totalCollected.toLocaleString()}</p>
+                <p className="text-sm text-muted-foreground">Paid</p>
+                <p className="font-display text-2xl font-bold text-foreground">PKR {totalCollected.toLocaleString()}</p>
               </div>
             </CardContent>
           </Card>
@@ -119,7 +119,7 @@ const PaymentTracking = () => {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Pending Dues</p>
-                <p className="font-display text-2xl font-bold text-foreground">₹{totalDue.toLocaleString()}</p>
+                <p className="font-display text-2xl font-bold text-foreground">PKR {totalDue.toLocaleString()}</p>
               </div>
             </CardContent>
           </Card>
@@ -179,7 +179,7 @@ const PaymentTracking = () => {
 
                   <div className="flex items-center gap-4 sm:gap-6">
                     <div className="text-right">
-                      <p className="font-display text-xl font-bold text-foreground">₹{payment.amount.toLocaleString()}</p>
+                      <p className="font-display text-xl font-bold text-foreground">PKR {payment.amount.toLocaleString()}</p>
                       <Badge className={`text-xs ${config.color} border-0`}>{config.label}</Badge>
                     </div>
 
@@ -199,7 +199,7 @@ const PaymentTracking = () => {
                             <div className="flex justify-between"><span className="text-muted-foreground">Student</span><span className="font-medium">{payment.studentName}</span></div>
                             <div className="flex justify-between"><span className="text-muted-foreground">Month</span><span className="font-medium">{payment.month || payment.dueDate}</span></div>
                             <hr className="border-border" />
-                            <div className="flex justify-between text-base"><span className="font-semibold">Amount Paid</span><span className="font-display font-bold text-primary">₹{payment.amount.toLocaleString()}</span></div>
+                            <div className="flex justify-between text-base"><span className="font-semibold">Amount Paid</span><span className="font-display font-bold text-primary">PKR {payment.amount.toLocaleString()}</span></div>
                           </div>
                         </DialogContent>
                       </Dialog>
@@ -218,31 +218,29 @@ const PaymentTracking = () => {
                         <DialogContent className="sm:max-w-md bg-card border-border/40">
                           <DialogHeader className="mb-2">
                             <DialogTitle className="font-display text-2xl text-foreground">Clear Fee</DialogTitle>
-                            <p className="text-sm text-muted-foreground mt-1.5">Select a method to pay your outstanding fee of ₹{payment.amount}</p>
+                            <p className="text-sm text-muted-foreground mt-1.5">Select a method to pay your outstanding fee of PKR {payment.amount}</p>
                           </DialogHeader>
-                          
+
                           <div className="grid grid-cols-2 gap-4 mt-2 mb-6">
                             <button
                               onClick={() => setSelectedMethod("card")}
-                              className={`p-4 rounded-xl border-2 text-left transition-all flex flex-col items-center justify-center gap-2 ${
-                                selectedMethod === "card"
+                              className={`p-4 rounded-xl border-2 text-left transition-all flex flex-col items-center justify-center gap-2 ${selectedMethod === "card"
                                   ? "border-primary bg-primary/5 shadow-[var(--shadow-warm)]"
                                   : "border-border hover:border-primary/40"
-                              }`}
+                                }`}
                             >
                               <div className={`p-2 rounded-full ${selectedMethod === 'card' ? 'bg-primary/10 text-primary' : 'bg-secondary text-muted-foreground'}`}>
                                 <IndianRupee className="h-5 w-5" />
                               </div>
                               <p className="font-semibold text-sm">Credit Card</p>
                             </button>
-                            
+
                             <button
                               onClick={() => setSelectedMethod("challan")}
-                              className={`p-4 rounded-xl border-2 text-left transition-all flex flex-col items-center justify-center gap-2 ${
-                                selectedMethod === "challan"
+                              className={`p-4 rounded-xl border-2 text-left transition-all flex flex-col items-center justify-center gap-2 ${selectedMethod === "challan"
                                   ? "border-primary bg-primary/5 shadow-[var(--shadow-warm)]"
                                   : "border-border hover:border-primary/40"
-                              }`}
+                                }`}
                             >
                               <div className={`p-2 rounded-full ${selectedMethod === 'challan' ? 'bg-primary/10 text-primary' : 'bg-secondary text-muted-foreground'}`}>
                                 <Download className="h-5 w-5" />
@@ -276,12 +274,12 @@ const PaymentTracking = () => {
                             </div>
                           )}
 
-                          <Button 
-                            className="w-full font-body font-semibold py-6 shadow-[var(--shadow-warm)]" 
+                          <Button
+                            className="w-full font-body font-semibold py-6 shadow-[var(--shadow-warm)]"
                             disabled={!selectedMethod || processingId === payment.id}
                             onClick={() => handlePaymentSubmit(payment.id)}
                           >
-                            {processingId === payment.id ? "Processing..." : selectedMethod === "card" ? `Pay ₹${payment.amount}` : selectedMethod === "challan" ? "Generate Challan" : "Select Payment Method"}
+                            {processingId === payment.id ? "Processing..." : selectedMethod === "card" ? `Pay PKR ${payment.amount}` : selectedMethod === "challan" ? "Generate Challan" : "Select Payment Method"}
                           </Button>
                         </DialogContent>
                       </Dialog>

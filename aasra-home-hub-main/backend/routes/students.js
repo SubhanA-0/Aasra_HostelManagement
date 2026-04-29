@@ -7,11 +7,14 @@ router.use(authenticateToken);
 
 // GET /api/students - Owner gets all students assigned to their rooms
 router.get('/', roleGuard(['owner']), (req, res) => {
+  // Students are tracked via users.room_id, not rooms.assigned_student_id
   const query = `
-    SELECT u.id, u.name, u.email, u.phone, r.room_number, r.hostel_name, r.id as room_id, r.created_at as enrollment_date
+    SELECT u.id, u.name, u.email, u.phone,
+           r.room_number, r.hostel_name, r.id as room_id,
+           u.created_at as enrollment_date
     FROM users u
-    JOIN rooms r ON u.id = r.assigned_student_id
-    WHERE r.owner_id = ?
+    JOIN rooms r ON u.room_id = r.id
+    WHERE r.owner_id = ? AND u.role = 'student'
   `;
   db.all(query, [req.user.id], (err, rows) => {
     if (err) return res.status(500).json({ message: 'Database error' });
@@ -22,14 +25,31 @@ router.get('/', roleGuard(['owner']), (req, res) => {
 // PUT /api/students/:id/archive - Owner archives a student (unassigns from room)
 router.put('/:id/archive', roleGuard(['owner']), (req, res) => {
   const studentId = req.params.id;
-  // Unassign student from the owner's room
-  db.run(
-    'UPDATE rooms SET assigned_student_id = NULL, status = "available" WHERE owner_id = ? AND assigned_student_id = ?',
-    [req.user.id, studentId],
-    function (err) {
-      if (err) return res.status(500).json({ message: 'Error archiving student' });
-      if (this.changes === 0) return res.status(404).json({ message: 'Student not found in your rooms' });
-      res.json({ message: 'Student archived successfully (unassigned from room)' });
+
+  // Verify this student is in one of this owner's rooms
+  db.get(
+    'SELECT r.id FROM users u JOIN rooms r ON u.room_id = r.id WHERE u.id = ? AND r.owner_id = ?',
+    [studentId, req.user.id],
+    (err, room) => {
+      if (err) return res.status(500).json({ message: 'Database error' });
+      if (!room) return res.status(404).json({ message: 'Student not found in your rooms' });
+
+      // Clear assignment on users table
+      db.run(
+        'UPDATE users SET room_id = NULL, hostel_name = NULL WHERE id = ?',
+        [studentId],
+        function (err) {
+          if (err) return res.status(500).json({ message: 'Error archiving student' });
+
+          // Mark room as available if this was the last occupant
+          db.run(
+            'UPDATE rooms SET status = "available" WHERE id = ? AND (SELECT COUNT(*) FROM users WHERE room_id = ?) = 0',
+            [room.id, room.id]
+          );
+
+          res.json({ message: 'Student archived successfully (unassigned from room)' });
+        }
+      );
     }
   );
 });

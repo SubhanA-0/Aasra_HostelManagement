@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { BedDouble, Building2, Users, Wifi, Wind, Bath, BookOpen, DoorOpen, Home } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { BedDouble, Building2, Users, Wifi, Wind, Bath, BookOpen, DoorOpen, Home, MessageSquare, Send, Phone } from "lucide-react";
 import api from "@/lib/api";
 
 const amenityIcons: Record<string, React.ElementType> = {
@@ -19,6 +20,14 @@ const StudentRoom = () => {
   const [myRoom, setMyRoom] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Chat state
+  const [showChat, setShowChat] = useState(false);
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [newMessage, setNewMessage] = useState("");
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  const myId = JSON.parse(localStorage.getItem('user') || '{}').id;
+
   useEffect(() => {
     api.get('/rooms/my-room')
       .then(res => {
@@ -29,6 +38,31 @@ const StudentRoom = () => {
       })
       .finally(() => setIsLoading(false));
   }, []);
+
+  const loadChat = async (ownerId: number) => {
+    try {
+      const res = await api.get('/messages');
+      const filtered = res.data.messages.filter((m: any) =>
+        m.sender_id === ownerId || m.receiver_id === ownerId
+      );
+      setChatMessages(filtered);
+      setShowChat(true);
+      setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+    } catch {}
+  };
+
+  const handleSend = async () => {
+    if (!newMessage.trim() || !myRoom?.owner_id) return;
+    try {
+      await api.post('/messages', {
+        receiverId: myRoom.owner_id,
+        hostelId: myRoom.id,
+        content: newMessage
+      });
+      setNewMessage("");
+      loadChat(myRoom.owner_id);
+    } catch {}
+  };
 
   if (isLoading) {
     return (
@@ -57,8 +91,8 @@ const StudentRoom = () => {
     );
   }
 
-  // Simulated amenities for dynamically fetched room
-  const amenities = ["WiFi", "Study Table"];
+  // Use actual amenities from backend
+  const amenities = myRoom?.amenities || [];
 
   return (
     <div className="min-h-screen bg-background font-body">
@@ -107,8 +141,32 @@ const StudentRoom = () => {
               </div>
 
               <div className="pt-2 border-t border-border">
-                <p className="font-display text-2xl font-bold text-primary">₹{myRoom.rate.toLocaleString()}<span className="text-sm text-muted-foreground font-normal">/month</span></p>
+                <p className="font-display text-2xl font-bold text-primary">PKR {myRoom.rate.toLocaleString()}<span className="text-sm text-muted-foreground font-normal">/month</span></p>
               </div>
+
+              {/* Owner Contact */}
+              {myRoom.owner_name && (
+                <div className="pt-2 border-t border-border space-y-3">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Owner Details</p>
+                  <div className="flex items-center gap-2 text-sm">
+                    <Building2 className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium">{myRoom.owner_name}</span>
+                  </div>
+                  {myRoom.owner_phone && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                      <span>{myRoom.owner_phone}</span>
+                    </div>
+                  )}
+                  <Button
+                    className="w-full mt-2"
+                    onClick={() => loadChat(myRoom.owner_id)}
+                  >
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    {showChat ? 'View Chat' : 'Chat with Owner'}
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -137,6 +195,62 @@ const StudentRoom = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Chat Panel */}
+        {showChat && myRoom?.owner_id && (
+          <Card className="mt-6">
+            <CardContent className="p-0">
+              <div className="flex items-center justify-between p-4 border-b">
+                <h3 className="font-display font-semibold flex items-center gap-2">
+                  <MessageSquare className="h-5 w-5 text-primary" />
+                  Chat with {myRoom.owner_name || 'Owner'}
+                </h3>
+                <Button variant="ghost" size="sm" onClick={() => setShowChat(false)}>Close</Button>
+              </div>
+
+              <div className="h-72 overflow-y-auto p-4 space-y-3 bg-secondary/10">
+                {chatMessages.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
+                    <MessageSquare className="h-8 w-8 opacity-20" />
+                    <p className="text-sm">No messages yet. Say hello!</p>
+                  </div>
+                ) : (
+                  chatMessages.map((m: any) => {
+                    const isMe = m.sender_id === myId;
+                    return (
+                      <div key={m.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                        <span className="text-xs text-muted-foreground mb-1">
+                          {isMe ? 'You' : m.sender_name}
+                        </span>
+                        <div className={`px-3 py-2 rounded-xl text-sm max-w-[80%] ${
+                          isMe
+                            ? 'bg-primary text-primary-foreground rounded-tr-sm'
+                            : 'bg-white border border-border rounded-tl-sm'
+                        }`}>
+                          {m.content}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+                <div ref={chatEndRef} />
+              </div>
+
+              <div className="p-4 border-t flex gap-2">
+                <Input
+                  placeholder="Type a message..."
+                  value={newMessage}
+                  onChange={e => setNewMessage(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleSend()}
+                  className="rounded-full"
+                />
+                <Button size="icon" className="rounded-full shrink-0" onClick={handleSend} disabled={!newMessage.trim()}>
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

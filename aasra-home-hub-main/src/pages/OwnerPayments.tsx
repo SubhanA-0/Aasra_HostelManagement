@@ -117,7 +117,7 @@ const OwnerPayments = () => {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Collected</p>
-                <p className="font-display text-2xl font-bold text-foreground">₹{totalCollected.toLocaleString()}</p>
+                <p className="font-display text-2xl font-bold text-foreground">PKR {totalCollected.toLocaleString()}</p>
               </div>
             </CardContent>
           </Card>
@@ -128,7 +128,7 @@ const OwnerPayments = () => {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Pending Dues</p>
-                <p className="font-display text-2xl font-bold text-foreground">₹{totalDue.toLocaleString()}</p>
+                <p className="font-display text-2xl font-bold text-foreground">PKR {totalDue.toLocaleString()}</p>
               </div>
             </CardContent>
           </Card>
@@ -188,7 +188,7 @@ const OwnerPayments = () => {
 
                   <div className="flex items-center gap-3">
                     <div className="text-right">
-                      <p className="font-display text-xl font-bold text-foreground">₹{payment.amount.toLocaleString()}</p>
+                      <p className="font-display text-xl font-bold text-foreground">PKR {payment.amount.toLocaleString()}</p>
                       <Badge className={`text-xs ${config.color} border-0`}>{config.label}</Badge>
                     </div>
 
@@ -210,7 +210,7 @@ const OwnerPayments = () => {
                             <div className="flex justify-between"><span className="text-muted-foreground">Room</span><span className="font-medium">{payment.roomNumber}</span></div>
                             <div className="flex justify-between"><span className="text-muted-foreground">Month</span><span className="font-medium">{payment.month}</span></div>
                             <hr className="border-border" />
-                            <div className="flex justify-between text-base"><span className="font-semibold">Amount Paid</span><span className="font-display font-bold text-primary">₹{payment.amount.toLocaleString()}</span></div>
+                            <div className="flex justify-between text-base"><span className="font-semibold">Amount Paid</span><span className="font-display font-bold text-primary">PKR {payment.amount.toLocaleString()}</span></div>
                           </div>
                         </DialogContent>
                       </Dialog>

@@ -20,9 +20,25 @@ const db = new sqlite3.Database(dbPath, (err) => {
       password TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT 'student',
       last_profile_edit DATETIME,
+      address TEXT,
+      university TEXT,
+      emergency_contact TEXT,
+      emergency_name TEXT,
+      cnic TEXT,
+      hostel_name TEXT,
+      room_id INTEGER REFERENCES rooms(id),
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`, (err) => {
-      if (err) console.error('Error creating users table', err.message);
+      if (err) {
+        console.error('Error creating users table', err.message);
+      } else {
+        // Try to add new columns in case table already existed
+        const newCols = ['address', 'university', 'emergency_contact', 'emergency_name', 'cnic', 'hostel_name'];
+        newCols.forEach(col => {
+          db.run(`ALTER TABLE users ADD COLUMN ${col} TEXT`, () => { /* Ignore errors if columns exist */ });
+        });
+        db.run(`ALTER TABLE users ADD COLUMN room_id INTEGER`, () => { /* Ignore */ });
+      }
     });
 
     // Create rooms table
@@ -36,28 +52,12 @@ const db = new sqlite3.Database(dbPath, (err) => {
       status TEXT NOT NULL DEFAULT 'available',
       owner_id INTEGER REFERENCES users(id),
       assigned_student_id INTEGER REFERENCES users(id),
+      amenities TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`, (err) => {
       if (err) console.error('Error creating rooms table', err.message);
       else {
-        // Seed dummy rooms if empty
-        db.get('SELECT COUNT(*) as count FROM rooms', [], (err, row) => {
-          if (row.count === 0) {
-            const dummyRooms = [
-              { hostel_name: "Sunrise Boys Hostel", room_number: "A-101", room_type: "Single", capacity: 1, rate: 5000 },
-              { hostel_name: "Sunrise Boys Hostel", room_number: "B-204", room_type: "Double", capacity: 2, rate: 3500 },
-              { hostel_name: "Green Valley Hostel", room_number: "C-302", room_type: "Triple", capacity: 3, rate: 2500 },
-              { hostel_name: "Green Valley Hostel", room_number: "A-105", room_type: "Single", capacity: 1, rate: 6000 },
-              { hostel_name: "City Stay Hostel", room_number: "D-110", room_type: "Double", capacity: 2, rate: 4000 },
-              { hostel_name: "City Stay Hostel", room_number: "D-112", room_type: "Single", capacity: 1, rate: 5500 },
-            ];
-            
-            const insert = db.prepare('INSERT INTO rooms (hostel_name, room_number, room_type, capacity, rate) VALUES (?, ?, ?, ?, ?)');
-            dummyRooms.forEach(r => insert.run(r.hostel_name, r.room_number, r.room_type, r.capacity, r.rate));
-            insert.finalize();
-            console.log('Seeded dummy rooms into the database.');
-          }
-        });
+        db.run(`ALTER TABLE rooms ADD COLUMN amenities TEXT`, () => { /* Ignore */ });
       }
     });
 
@@ -83,9 +83,13 @@ const db = new sqlite3.Database(dbPath, (err) => {
       receiver_id INTEGER NOT NULL REFERENCES users(id),
       hostel_id INTEGER,
       content TEXT NOT NULL,
+      is_read INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`, (err) => {
       if (err) console.error('Error creating messages table', err.message);
+      else {
+        db.run(`ALTER TABLE messages ADD COLUMN is_read INTEGER DEFAULT 0`, () => { /* Ignore */ });
+      }
     });
 
     // Create profile_history table

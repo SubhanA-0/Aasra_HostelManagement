@@ -59,4 +59,26 @@ router.get('/', (req, res) => {
   );
 });
 
+// PUT /api/messages/read — Mark messages as read
+router.put('/read', (req, res) => {
+  const { senderId, hostelId } = req.body;
+  const userId = req.user.id;
+
+  if (!senderId || !hostelId) {
+    return res.status(400).json({ message: 'senderId and hostelId are required' });
+  }
+
+  // Mark all messages from this sender to the current user regarding this hostel as read
+  db.run(
+    'UPDATE messages SET is_read = 1 WHERE sender_id = ? AND receiver_id = ? AND hostel_id = ?',
+    [senderId, userId, hostelId],
+    function (err) {
+      if (err) {
+        return res.status(500).json({ message: 'Error updating messages' });
+      }
+      res.json({ message: 'Messages marked as read' });
+    }
+  );
+});
+
 module.exports = router;

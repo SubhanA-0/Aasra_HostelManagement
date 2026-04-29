@@ -8,7 +8,7 @@ const router = express.Router();
 
 // POST /api/rooms — Create a room (owner only)
 router.post('/', authenticateToken, roleGuard(['owner']), (req, res) => {
-  const { hostel_name, room_number, room_type, capacity, rate } = req.body;
+  const { hostel_name, room_number, room_type, capacity, rate, amenities } = req.body;
 
   if (!room_number || !rate || !hostel_name) {
     return res.status(400).json({ message: 'Hostel name, room number and rate are required' });
@@ -16,10 +16,11 @@ router.post('/', authenticateToken, roleGuard(['owner']), (req, res) => {
 
   const type = room_type || 'Single';
   const cap = capacity || 1;
+  const ams = amenities ? JSON.stringify(amenities) : '[]';
 
   db.run(
-    'INSERT INTO rooms (hostel_name, room_number, room_type, capacity, rate, owner_id) VALUES (?, ?, ?, ?, ?, ?)',
-    [hostel_name, room_number, type, cap, rate, req.user.id],
+    'INSERT INTO rooms (hostel_name, room_number, room_type, capacity, rate, owner_id, amenities) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [hostel_name, room_number, type, cap, rate, req.user.id, ams],
     function (err) {
       if (err) {
         return res.status(500).json({ message: 'Error creating room' });
@@ -35,6 +36,7 @@ router.post('/', authenticateToken, roleGuard(['owner']), (req, res) => {
           rate,
           status: 'available',
           owner_id: req.user.id,
+          amenities: amenities || [],
         },
       });
     }
@@ -47,9 +49,10 @@ router.get('/my-room', authenticateToken, (req, res) => {
     return res.status(403).json({ message: 'Only students can have an assigned room' });
   }
 
-  db.get('SELECT * FROM rooms WHERE assigned_student_id = ?', [req.user.id], (err, row) => {
+  db.get('SELECT r.*, o.name as owner_name, o.phone as owner_phone FROM rooms r JOIN users u ON r.id = u.room_id LEFT JOIN users o ON r.owner_id = o.id WHERE u.id = ?', [req.user.id], (err, row) => {
     if (err) return res.status(500).json({ message: 'Database error' });
     if (!row) return res.status(404).json({ message: 'No room assigned yet' });
+    row.amenities = row.amenities ? JSON.parse(row.amenities) : [];
     res.json({ room: row });
   });
 });
@@ -72,11 +75,11 @@ router.get('/', (req, res) => {
 
   if (user && user.role === 'owner') {
     // Owners see only their own rooms
-    query = 'SELECT * FROM rooms WHERE owner_id = ?';
+    query = 'SELECT r.*, o.name as owner_name, o.phone as owner_phone, (SELECT COUNT(*) FROM users u WHERE u.room_id = r.id) as current_occupancy FROM rooms r JOIN users o ON r.owner_id = o.id WHERE r.owner_id = ?';
     params = [user.id];
   } else {
     // Students and Unauthenticated Guests see all rooms
-    query = 'SELECT * FROM rooms';
+    query = 'SELECT r.*, o.name as owner_name, o.phone as owner_phone, (SELECT COUNT(*) FROM users u WHERE u.room_id = r.id) as current_occupancy FROM rooms r JOIN users o ON r.owner_id = o.id';
     params = [];
   }
 
@@ -84,7 +87,8 @@ router.get('/', (req, res) => {
     if (err) {
       return res.status(500).json({ message: 'Error fetching rooms' });
     }
-    res.json({ rooms: rows });
+    const parsedRows = rows.map(r => ({ ...r, amenities: r.amenities ? JSON.parse(r.amenities) : [] }));
+    res.json({ rooms: parsedRows });
   });
 });
 
@@ -102,35 +106,97 @@ router.put('/:id/assign', authenticateToken, roleGuard(['owner']), (req, res) =>
     'SELECT * FROM rooms WHERE id = ? AND owner_id = ?',
     [roomId, req.user.id],
     (err, room) => {
-      if (err) {
-        return res.status(500).json({ message: 'Database error' });
-      }
-      if (!room) {
-        return res.status(404).json({ message: 'Room not found or you do not own this room' });
-      }
-      if (room.status === 'occupied') {
-        return res.status(400).json({ message: 'Room not available' });
-      }
+      if (err) return res.status(500).json({ message: 'Database error' });
+      if (!room) return res.status(404).json({ message: 'Room not found or you do not own this room' });
+      if (room.status === 'occupied') return res.status(400).json({ message: 'Room is already full' });
 
-      db.run(
-        'UPDATE rooms SET status = ?, assigned_student_id = ? WHERE id = ? AND owner_id = ?',
-        ['occupied', studentId, roomId, req.user.id],
-        function (err) {
-          if (err) {
-            return res.status(500).json({ message: 'Error assigning student' });
+      // Check current occupancy
+      db.get('SELECT COUNT(*) as count FROM users WHERE room_id = ?', [roomId], (err, row) => {
+        if (err) return res.status(500).json({ message: 'Database error' });
+        
+        if (row.count >= room.capacity) {
+           return res.status(400).json({ message: 'Room is already full' });
+        }
+
+        db.run('UPDATE users SET room_id = ?, hostel_name = ? WHERE id = ?', [roomId, room.hostel_name, studentId], (err) => {
+          if (err) return res.status(500).json({ message: 'Error assigning student to room' });
+
+          // If this student fills the room, mark it occupied
+          if (row.count + 1 >= room.capacity) {
+            db.run('UPDATE rooms SET status = ? WHERE id = ?', ['occupied', roomId]);
           }
+
           res.json({
             message: 'Student assigned successfully',
             room: {
               id: parseInt(roomId),
-              status: 'occupied',
-              assigned_student_id: studentId,
+              status: (row.count + 1 >= room.capacity) ? 'occupied' : 'available',
             },
           });
-        }
-      );
+        });
+      });
     }
   );
+});
+
+// PUT /api/rooms/:id — Edit a room (owner only, cannot reduce capacity below occupancy)
+router.put('/:id', authenticateToken, roleGuard(['owner']), (req, res) => {
+  const roomId = req.params.id;
+  const { room_number, room_type, capacity, rate, amenities } = req.body;
+
+  // Verify ownership
+  db.get('SELECT * FROM rooms WHERE id = ? AND owner_id = ?', [roomId, req.user.id], (err, room) => {
+    if (err) return res.status(500).json({ message: 'Database error' });
+    if (!room) return res.status(404).json({ message: 'Room not found or you do not own it' });
+
+    // Check current occupancy against new capacity
+    db.get('SELECT COUNT(*) as count FROM users WHERE room_id = ?', [roomId], (err, row) => {
+      if (err) return res.status(500).json({ message: 'Database error' });
+
+      const newCapacity = capacity !== undefined ? capacity : room.capacity;
+      if (newCapacity < row.count) {
+        return res.status(400).json({
+          message: `Cannot reduce capacity to ${newCapacity}. There are currently ${row.count} student(s) in this room.`
+        });
+      }
+
+      const newType = room_type || room.room_type;
+      const newRate = rate !== undefined ? rate : room.rate;
+      const newRoomNumber = room_number || room.room_number;
+      const newAmenities = amenities !== undefined ? JSON.stringify(amenities) : room.amenities;
+
+      db.run(
+        'UPDATE rooms SET room_number = ?, room_type = ?, capacity = ?, rate = ?, amenities = ? WHERE id = ?',
+        [newRoomNumber, newType, newCapacity, newRate, newAmenities, roomId],
+        (err) => {
+          if (err) return res.status(500).json({ message: 'Error updating room' });
+          res.json({ message: 'Room updated successfully' });
+        }
+      );
+    });
+  });
+});
+
+// DELETE /api/rooms/:id — Delete a room (owner only)
+router.delete('/:id', authenticateToken, roleGuard(['owner']), (req, res) => {
+  const roomId = req.params.id;
+
+  // Verify ownership
+  db.get('SELECT * FROM rooms WHERE id = ? AND owner_id = ?', [roomId, req.user.id], (err, room) => {
+    if (err) return res.status(500).json({ message: 'Database error' });
+    if (!room) return res.status(404).json({ message: 'Room not found or you do not own it' });
+
+    // Deallocate students from this room
+    db.run('UPDATE users SET room_id = NULL, hostel_name = NULL WHERE room_id = ?', [roomId], (err) => {
+      if (err) return res.status(500).json({ message: 'Error deallocating students' });
+
+      // Delete the room
+      db.run('DELETE FROM rooms WHERE id = ?', [roomId], (err) => {
+        if (err) return res.status(500).json({ message: 'Error deleting room' });
+        res.json({ message: 'Room deleted and students deallocated' });
+      });
+    });
+  });
 });
 
 module.exports = router;

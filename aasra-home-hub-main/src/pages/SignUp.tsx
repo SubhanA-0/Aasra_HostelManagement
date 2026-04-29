@@ -19,6 +19,10 @@ const SignUp = () => {
   const [cnic, setCnic] = useState("");
   const [hostelName, setHostelName] = useState("");
   const [password, setPassword] = useState("");
+  const [address, setAddress] = useState("");
+  const [university, setUniversity] = useState("");
+  const [emergencyContact, setEmergencyContact] = useState("");
+  const [emergencyName, setEmergencyName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -34,6 +38,11 @@ const SignUp = () => {
       return;
     }
 
+    if (role === "student" && (!address || !university || !emergencyContact || !emergencyName)) {
+      toast.error("Address, University, and Emergency Contact details are required for students.");
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -45,6 +54,10 @@ const SignUp = () => {
         phone,
         cnic: role === "owner" ? cnic : undefined,
         hostelName: role === "owner" ? hostelName : undefined,
+        address: role === "student" ? address : undefined,
+        university: role === "student" ? university : undefined,
+        emergencyContact: role === "student" ? emergencyContact : undefined,
+        emergencyName: role === "student" ? emergencyName : undefined,
       });
 
       if (response.data.token) {
@@ -126,21 +139,50 @@ const SignUp = () => {
                   <span>First Name</span>
                   <span className="text-[10px] text-yellow-600 dark:text-yellow-500 font-normal">(Cannot be changed later)</span>
                 </Label>
-                <Input id="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="John" className="mt-1.5" />
+                <Input id="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} maxLength={20} className="mt-1.5" />
               </div>
               <div>
                 <Label htmlFor="lastName" className="text-sm font-medium">Last Name</Label>
-                <Input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Doe" className="mt-1.5" />
+                <Input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} maxLength={20} className="mt-1.5" />
               </div>
             </div>
             <div>
               <Label htmlFor="email" className="text-sm font-medium">Email</Label>
-              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="mt-1.5" />
+              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="example@gmail.com" className="mt-1.5" />
             </div>
             <div>
-              <Label htmlFor="phone" className="text-sm font-medium">Phone Number</Label>
-              <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+92 300 1234567" className="mt-1.5" />
+              <Label htmlFor="phone" className="text-sm font-medium space-x-2">
+                <span>Phone Number</span>
+                <span className="text-[10px] text-muted-foreground font-normal">(Format: 03XXXXXXXXX)</span>
+              </Label>
+              <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="03XXXXXXXXX" maxLength={11} className="mt-1.5" />
             </div>
+
+            {role === "student" && (
+              <>
+                <div>
+                  <Label htmlFor="address" className="text-sm font-medium">Address</Label>
+                  <Input id="address" value={address} onChange={(e) => setAddress(e.target.value)} className="mt-1.5" />
+                </div>
+                <div>
+                  <Label htmlFor="university" className="text-sm font-medium">University</Label>
+                  <Input id="university" value={university} onChange={(e) => setUniversity(e.target.value)} className="mt-1.5" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="emergencyName" className="text-sm font-medium">Emergency Contact Name</Label>
+                    <Input id="emergencyName" value={emergencyName} onChange={(e) => setEmergencyName(e.target.value)} maxLength={20} className="mt-1.5" />
+                  </div>
+                  <div>
+                    <Label htmlFor="emergencyContact" className="text-sm font-medium space-x-2">
+                      <span>Emergency Phone</span>
+                      <span className="text-[10px] text-muted-foreground font-normal">(Format: 03XXXXXXXXX)</span>
+                    </Label>
+                    <Input id="emergencyContact" type="tel" value={emergencyContact} onChange={(e) => setEmergencyContact(e.target.value)} placeholder="03XXXXXXXXX" maxLength={11} className="mt-1.5" />
+                  </div>
+                </div>
+              </>
+            )}
 
             {role === "owner" && (
               <>
@@ -150,7 +192,7 @@ const SignUp = () => {
                 </div>
                 <div>
                   <Label htmlFor="hostelName" className="text-sm font-medium">Hostel Name</Label>
-                  <Input id="hostelName" value={hostelName} onChange={(e) => setHostelName(e.target.value)} placeholder="e.g. Sunrise Boys Hostel" className="mt-1.5" />
+                  <Input id="hostelName" value={hostelName} onChange={(e) => setHostelName(e.target.value)} maxLength={40} className="mt-1.5" />
                 </div>
               </>
             )}

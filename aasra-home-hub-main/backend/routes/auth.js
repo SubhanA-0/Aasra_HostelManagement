@@ -9,7 +9,7 @@ const JWT_SECRET = 'your_super_secret_jwt_key_here_change_in_production';
 
 // Sign Up
 router.post('/signup', async (req, res) => {
-  const { name, email, password, role, phone } = req.body;
+  const { name, email, password, role, phone, address, university, emergencyContact, emergencyName, cnic, hostelName } = req.body;
 
   if (!name || !email || !password) {
     return res.status(400).json({ message: 'Name, email, and password are required' });
@@ -32,8 +32,8 @@ router.post('/signup', async (req, res) => {
       const userRole = role === 'owner' ? 'owner' : 'student';
 
       // Insert user
-      db.run('INSERT INTO users (name, email, phone, password, role) VALUES (?, ?, ?, ?, ?)', 
-        [name, email, phone || null, hashedPassword, userRole],
+      db.run('INSERT INTO users (name, email, phone, password, role, address, university, emergency_contact, emergency_name, cnic, hostel_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 
+        [name, email, phone || null, hashedPassword, userRole, address || null, university || null, emergencyContact || null, emergencyName || null, cnic || null, hostelName || null],
         function(err) {
           if (err) {
             return res.status(500).json({ message: 'Error creating user' });
@@ -48,7 +48,12 @@ router.post('/signup', async (req, res) => {
           res.status(201).json({ 
             message: 'User created successfully',
             token,
-            user: { id: this.lastID, name, email, phone: phone || null, role: userRole }
+            user: { 
+              id: this.lastID, name, email, phone: phone || null, role: userRole,
+              address: address || null, university: university || null,
+              emergency_contact: emergencyContact || null, emergency_name: emergencyName || null,
+              cnic: cnic || null, hostel_name: hostelName || null
+            }
           });
         }
       );
@@ -102,17 +107,23 @@ router.post('/login', (req, res) => {
 
 // GET /me
 router.get('/me', authenticateToken, (req, res) => {
-  db.get('SELECT id, name, email, phone, role, last_profile_edit FROM users WHERE id = ?', [req.user.id], (err, user) => {
-    if (err) return res.status(500).json({ message: 'Database error' });
-    if (!user) return res.status(404).json({ message: 'User not found' });
+  db.get('SELECT id, name, email, phone, role, last_profile_edit, address, university, emergency_contact, emergency_name, cnic, hostel_name FROM users WHERE id = ?', [req.user.id], (err, user) => {
+    if (err) {
+      console.error('/me Database error:', err);
+      return res.status(500).json({ message: 'Database error' });
+    }
+    if (!user) {
+      console.error('/me User not found for id:', req.user.id);
+      return res.status(404).json({ message: 'User not found' });
+    }
     res.json({ user });
   });
 });
 
 // PUT /profile
 router.put('/profile', authenticateToken, (req, res) => {
-  const { email, phone } = req.body;
-  if (!email && !phone) return res.status(400).json({ message: 'Nothing to update' });
+  const { email, phone, address, university, emergencyContact, emergencyName } = req.body;
+  if (!email && !phone && address === undefined && university === undefined && emergencyContact === undefined && emergencyName === undefined) return res.status(400).json({ message: 'Nothing to update' });
 
   db.get('SELECT * FROM users WHERE id = ?', [req.user.id], (err, user) => {
     if (err) return res.status(500).json({ message: 'Database error' });
@@ -137,13 +148,17 @@ router.put('/profile', authenticateToken, (req, res) => {
         
         // Update user
         const newEmail = email || user.email;
-        const newPhone = phone || user.phone;
+        const newPhone = phone !== undefined ? phone : user.phone;
+        const newAddress = address !== undefined ? address : user.address;
+        const newUniversity = university !== undefined ? university : user.university;
+        const newEmergencyContact = emergencyContact !== undefined ? emergencyContact : user.emergency_contact;
+        const newEmergencyName = emergencyName !== undefined ? emergencyName : user.emergency_name;
         
-        db.run('UPDATE users SET email = ?, phone = ?, last_profile_edit = CURRENT_TIMESTAMP WHERE id = ?',
-          [newEmail, newPhone, user.id],
+        db.run('UPDATE users SET email = ?, phone = ?, address = ?, university = ?, emergency_contact = ?, emergency_name = ?, last_profile_edit = CURRENT_TIMESTAMP WHERE id = ?',
+          [newEmail, newPhone, newAddress, newUniversity, newEmergencyContact, newEmergencyName, user.id],
           function(err) {
             if (err) return res.status(500).json({ message: 'Error updating profile. Email might be in use.' });
-            res.json({ message: 'Profile updated successfully', user: { ...user, email: newEmail, phone: newPhone, last_profile_edit: new Date().toISOString() } });
+            res.json({ message: 'Profile updated successfully', user: { ...user, email: newEmail, phone: newPhone, address: newAddress, university: newUniversity, emergency_contact: newEmergencyContact, emergency_name: newEmergencyName, last_profile_edit: new Date().toISOString() } });
           }
         );
       }

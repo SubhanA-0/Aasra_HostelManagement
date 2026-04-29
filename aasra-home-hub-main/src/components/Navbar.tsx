@@ -45,7 +45,7 @@ const Navbar = () => {
 
         {/* Desktop nav links */}
         <div className="hidden md:flex items-center gap-8">
-          {navLinks.map((link) => (
+          {navLinks.filter(l => !(user?.role === 'owner' && l.label === 'Hostels')).map((link) => (
             <Link
               key={link.label}
               to={link.href}
@@ -113,7 +113,7 @@ const Navbar = () => {
             </SheetTrigger>
             <SheetContent side="right" className="w-72 bg-background">
               <div className="flex flex-col gap-6 mt-8">
-                {navLinks.map((link) => (
+                {navLinks.filter(l => !(user?.role === 'owner' && l.label === 'Hostels')).map((link) => (
                   <Link
                     key={link.label}
                     to={link.href}
@@ -149,14 +149,6 @@ const Navbar = () => {
                   </div>
                 ) : (
                   <>
-                    <p className="font-body text-xs text-muted-foreground uppercase tracking-widest">Dashboards</p>
-                    <Link to="/student" className="font-body text-lg font-medium text-foreground hover:text-primary transition-colors">
-                      Student Dashboard
-                    </Link>
-                    <Link to="/owner" className="font-body text-lg font-medium text-foreground hover:text-primary transition-colors">
-                      Owner Dashboard
-                    </Link>
-                    <hr className="border-border" />
                     <Link to="/login">
                       <Button variant="outline" className="w-full font-body">Log In</Button>
                     </Link>

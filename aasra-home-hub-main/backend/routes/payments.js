@@ -56,37 +56,52 @@ router.post('/book', (req, res) => {
   db.get('SELECT * FROM rooms WHERE id = ?', [roomId], (err, room) => {
     if (err) return res.status(500).json({ message: 'Database error' });
     if (!room) return res.status(404).json({ message: 'Room not found' });
-    if (room.status === 'occupied') return res.status(400).json({ message: 'Room is already occupied' });
+    if (room.status === 'occupied') return res.status(400).json({ message: 'Room is already full' });
 
     // Validate payment amount conceptually
     if (amount < room.rate) {
       return res.status(400).json({ message: 'Payment amount is less than room rate' });
     }
 
-    const receiptId = 'RCP-' + Date.now();
-    const dateStr = new Date().toISOString().split('T')[0];
-    const monthStr = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
-
-    db.run(
-      'INSERT INTO payments (student_id, amount, date, month, payment_method, status, receipt_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [req.user.id, amount, dateStr, monthStr, paymentMethod, 'paid', receiptId],
-      function (err) {
-        if (err) return res.status(500).json({ message: 'Error recording payment' });
-
-        db.run(
-          'UPDATE rooms SET status = ?, assigned_student_id = ? WHERE id = ?',
-          ['occupied', req.user.id, roomId],
-          function (err) {
-            if (err) return res.status(500).json({ message: 'Error assigning room' });
-
-            res.status(201).json({
-              message: 'Booking and payment successful',
-              receipt_id: receiptId
-            });
-          }
-        );
+    // Check current occupancy
+    db.get('SELECT COUNT(*) as count FROM users WHERE room_id = ?', [roomId], (err, row) => {
+      if (err) return res.status(500).json({ message: 'Database error' });
+      
+      if (row.count >= room.capacity) {
+        return res.status(400).json({ message: 'Room is already full' });
       }
-    );
+
+      const receiptId = 'RCP-' + Date.now();
+      const dateStr = new Date().toISOString().split('T')[0];
+      const monthStr = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
+
+      db.run(
+        'INSERT INTO payments (student_id, amount, date, month, payment_method, status, receipt_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [req.user.id, amount, dateStr, monthStr, paymentMethod, 'paid', receiptId],
+        function (err) {
+          if (err) return res.status(500).json({ message: 'Error recording payment' });
+
+          // Assign student to the room
+          db.run(
+            'UPDATE users SET room_id = ?, hostel_name = ? WHERE id = ?',
+            [roomId, room.hostel_name, req.user.id],
+            function (err) {
+              if (err) return res.status(500).json({ message: 'Error assigning room' });
+
+              // If full, mark room as occupied
+              if (row.count + 1 >= room.capacity) {
+                db.run('UPDATE rooms SET status = ? WHERE id = ?', ['occupied', roomId]);
+              }
+
+              res.status(201).json({
+                message: 'Booking and payment successful',
+                receipt_id: receiptId
+              });
+            }
+          );
+        }
+      );
+    });
   });
 });
 

@@ -29,16 +29,31 @@ const StudentComplaints = () => {
   const { toast } = useToast();
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ hostelName: "Sunrise Boys Hostel", category: "Maintenance", description: "" });
+  const [form, setForm] = useState({ hostelName: "", category: "Maintenance", description: "" });
+  const [assignedRoom, setAssignedRoom] = useState<any>(null);
 
   useEffect(() => {
     fetchComplaints();
+    fetchMyRoom();
   }, []);
+
+  const fetchMyRoom = async () => {
+    try {
+      const res = await api.get("/rooms/my-room");
+      if (res.data.room) {
+        setAssignedRoom(res.data.room);
+        setForm(prev => ({ ...prev, hostelName: res.data.room.hostel_name }));
+      }
+    } catch {
+      // Student has no room assigned
+    }
+  };
 
   const fetchComplaints = async () => {
     try {
       const res = await api.get("/complaints");
-      setComplaints(res.data.complaints || []);
+      const pending = (res.data.complaints || []).filter((c: Complaint) => c.status !== "Resolved");
+      setComplaints(pending);
     } catch {
       toast({ title: "Failed to load complaints", variant: "destructive" });
     }
@@ -52,7 +67,7 @@ const StudentComplaints = () => {
     }
     try {
       await api.post("/complaints", form);
-      setForm({ hostelName: "Sunrise Boys Hostel", category: "Maintenance", description: "" });
+      setForm({ hostelName: assignedRoom?.hostel_name || "", category: "Maintenance", description: "" });
       setShowForm(false);
       toast({ title: "Complaint submitted", description: "The hostel owner will be notified." });
       fetchComplaints();
@@ -70,10 +85,17 @@ const StudentComplaints = () => {
             <h1 className="font-display text-3xl font-bold text-foreground">My Complaints</h1>
             <p className="text-muted-foreground mt-1">Raise and track your hostel complaints</p>
           </div>
-          <Button onClick={() => setShowForm(!showForm)} className="font-body">
+          <Button onClick={() => setShowForm(!showForm)} className="font-body" disabled={!assignedRoom}>
             <Plus className="h-4 w-4 mr-2" /> New Complaint
           </Button>
         </div>
+
+        {!assignedRoom && (
+          <div className="mb-6 p-4 bg-yellow-50 text-yellow-800 border border-yellow-200 rounded-md flex items-center gap-2">
+            <AlertCircle className="h-5 w-5" />
+            <p className="text-sm">You must be assigned to a room before you can submit a complaint.</p>
+          </div>
+        )}
 
         {showForm && (
           <Card className="mb-8 border-primary/20">
@@ -81,7 +103,7 @@ const StudentComplaints = () => {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <Label>Hostel Name</Label>
-                  <Input placeholder="Enter your current hostel..." value={form.hostelName} onChange={(e) => setForm({ ...form, hostelName: e.target.value })} />
+                  <Input readOnly value={form.hostelName} className="bg-muted text-muted-foreground" />
                 </div>
                 <div className="space-y-2">
                   <Label>Category</Label>

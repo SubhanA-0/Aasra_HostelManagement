@@ -9,6 +9,7 @@ import { BedDouble, CreditCard, ClipboardList, Bell, GraduationCap, MessageSquar
 import api from "@/lib/api";
 
 const ownerFeatures = [
+  { icon: Building, title: "My Hostels & Chats", desc: "View your grouped properties and student chats.", href: "/owner/hostels" },
   { icon: BedDouble, title: "Room Management", desc: "Add, edit, and manage hostel rooms.", href: "/owner/rooms" },
   { icon: GraduationCap, title: "Student Index", desc: "Archive and inspect student registers.", href: "/owner/students" },
   { icon: CreditCard, title: "Fee Management", desc: "Track all student payments and dues.", href: "/owner/payments" },
@@ -77,7 +78,7 @@ const OwnerDashboard = () => {
             <CardContent className="p-4 flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Pending Dues</p>
-                <h3 className="text-2xl font-bold mt-1">₹{stats.pendingDues.toLocaleString()}</h3>
+                <h3 className="text-2xl font-bold mt-1">PKR {stats.pendingDues.toLocaleString()}</h3>
               </div>
               <CreditCard className="h-8 w-8 text-red-500/40" />
             </CardContent>

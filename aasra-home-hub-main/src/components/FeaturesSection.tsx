@@ -17,15 +17,13 @@ const FeaturesSection = () => {
         
         <div className="grid sm:grid-cols-2 gap-6 max-w-3xl mx-auto">
           {features.map((f, i) => (
-            <Link to={f.href} key={f.title}>
-              <div className="group p-6 rounded-xl bg-background border border-border hover:shadow-[var(--shadow-warm)] transition-all duration-300 opacity-0 animate-fade-up h-full" style={{ animationDelay: `${0.1 * i}s` }}>
-                <div className="h-12 w-12 rounded-lg bg-secondary flex items-center justify-center mb-4 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                  <f.icon className="h-6 w-6" />
-                </div>
-                <h3 className="font-display text-xl mb-2">{f.title}</h3>
-                <p className="font-body text-muted-foreground text-sm leading-relaxed">{f.desc}</p>
+            <div key={f.title} className="group p-6 rounded-xl bg-background border border-border hover:shadow-[var(--shadow-warm)] transition-all duration-300 opacity-0 animate-fade-up h-full" style={{ animationDelay: `${0.1 * i}s` }}>
+              <div className="h-12 w-12 rounded-lg bg-secondary flex items-center justify-center mb-4 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                <f.icon className="h-6 w-6" />
               </div>
-            </Link>
+              <h3 className="font-display text-xl mb-2">{f.title}</h3>
+              <p className="font-body text-muted-foreground text-sm leading-relaxed">{f.desc}</p>
+            </div>
           ))}
         </div>
       </div>

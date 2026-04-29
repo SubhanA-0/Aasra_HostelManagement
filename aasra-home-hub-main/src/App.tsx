@@ -8,6 +8,7 @@ import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
 import Hostels from "./pages/Hostels";
 import OwnerDashboard from "./pages/OwnerDashboard";
+import OwnerHostels from "./pages/OwnerHostels";
 import OwnerRooms from "./pages/OwnerRooms";
 import OwnerStudents from "./pages/OwnerStudents";
 import OwnerPayments from "./pages/OwnerPayments";
@@ -21,6 +22,7 @@ import StudentRoom from "./pages/StudentRoom";
 import StudentProfile from "./pages/StudentProfile";
 import RateHostel from "./pages/RateHostel";
 import NotFound from "./pages/NotFound";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -36,20 +38,21 @@ const App = () => (
           <Route path="/signup" element={<SignUp />} />
           <Route path="/hostels" element={<Hostels />} />
           {/* Owner routes */}
-          <Route path="/owner" element={<OwnerDashboard />} />
-          <Route path="/owner/rooms" element={<OwnerRooms />} />
-          <Route path="/owner/students" element={<OwnerStudents />} />
-          <Route path="/owner/payments" element={<OwnerPayments />} />
-          <Route path="/owner/complaints" element={<OwnerComplaints />} />
-          <Route path="/owner/notices" element={<OwnerNotices />} />
+          <Route path="/owner" element={<ProtectedRoute allowedRole="owner"><OwnerDashboard /></ProtectedRoute>} />
+          <Route path="/owner/hostels" element={<ProtectedRoute allowedRole="owner"><OwnerHostels /></ProtectedRoute>} />
+          <Route path="/owner/rooms" element={<ProtectedRoute allowedRole="owner"><OwnerRooms /></ProtectedRoute>} />
+          <Route path="/owner/students" element={<ProtectedRoute allowedRole="owner"><OwnerStudents /></ProtectedRoute>} />
+          <Route path="/owner/payments" element={<ProtectedRoute allowedRole="owner"><OwnerPayments /></ProtectedRoute>} />
+          <Route path="/owner/complaints" element={<ProtectedRoute allowedRole="owner"><OwnerComplaints /></ProtectedRoute>} />
+          <Route path="/owner/notices" element={<ProtectedRoute allowedRole="owner"><OwnerNotices /></ProtectedRoute>} />
           {/* Student routes */}
-          <Route path="/student" element={<StudentDashboard />} />
-          <Route path="/student/room" element={<StudentRoom />} />
-          <Route path="/student/complaints" element={<StudentComplaints />} />
-          <Route path="/student/notices" element={<StudentNotices />} />
-          <Route path="/student/profile" element={<StudentProfile />} />
-          <Route path="/student/rate" element={<RateHostel />} />
-          <Route path="/payments" element={<PaymentTracking />} />
+          <Route path="/student" element={<ProtectedRoute allowedRole="student"><StudentDashboard /></ProtectedRoute>} />
+          <Route path="/student/room" element={<ProtectedRoute allowedRole="student"><StudentRoom /></ProtectedRoute>} />
+          <Route path="/student/complaints" element={<ProtectedRoute allowedRole="student"><StudentComplaints /></ProtectedRoute>} />
+          <Route path="/student/notices" element={<ProtectedRoute allowedRole="student"><StudentNotices /></ProtectedRoute>} />
+          <Route path="/student/profile" element={<ProtectedRoute allowedRole="student"><StudentProfile /></ProtectedRoute>} />
+          <Route path="/student/rate" element={<ProtectedRoute allowedRole="student"><RateHostel /></ProtectedRoute>} />
+          <Route path="/payments" element={<ProtectedRoute allowedRole="student"><PaymentTracking /></ProtectedRoute>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
