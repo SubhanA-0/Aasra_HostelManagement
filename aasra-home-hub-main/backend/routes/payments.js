@@ -112,11 +112,24 @@ router.get('/', (req, res) => {
 
   if (req.user.role === 'student') {
     // Students see only their own payments
-    query = 'SELECT * FROM payments WHERE student_id = ? ORDER BY created_at DESC';
+    query = `
+      SELECT p.*, u.name as student_name, u.id as student_id, u.hostel_name as user_hostel_name, r.room_number 
+      FROM payments p 
+      JOIN users u ON p.student_id = u.id 
+      LEFT JOIN rooms r ON u.room_id = r.id 
+      WHERE p.student_id = ? 
+      ORDER BY p.created_at DESC
+    `;
     params = [req.user.id];
   } else {
     // Owners see all payments
-    query = 'SELECT * FROM payments ORDER BY created_at DESC';
+    query = `
+      SELECT p.*, u.name as student_name, u.id as student_id, u.hostel_name as user_hostel_name, r.room_number 
+      FROM payments p 
+      JOIN users u ON p.student_id = u.id 
+      LEFT JOIN rooms r ON u.room_id = r.id 
+      ORDER BY p.created_at DESC
+    `;
     params = [];
   }
 

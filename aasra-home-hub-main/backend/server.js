@@ -8,6 +8,7 @@ const studentsRoutes = require('./routes/students');
 const complaintsRoutes = require('./routes/complaints');
 const reviewsRoutes = require('./routes/reviews');
 const statsRoutes = require('./routes/stats');
+const noticesRoutes = require('./routes/notices');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -25,6 +26,7 @@ app.use('/api/students', studentsRoutes);
 app.use('/api/complaints', complaintsRoutes);
 app.use('/api/reviews', reviewsRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/notices', noticesRoutes);
 
 // Database initialization
 require('./db');

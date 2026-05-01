@@ -89,6 +89,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
       if (err) console.error('Error creating messages table', err.message);
       else {
         db.run(`ALTER TABLE messages ADD COLUMN is_read INTEGER DEFAULT 0`, () => { /* Ignore */ });
+        db.run(`ALTER TABLE messages ADD COLUMN hostel_id INTEGER`, () => { /* Ignore */ });
       }
     });
 
@@ -116,6 +117,30 @@ const db = new sqlite3.Database(dbPath, (err) => {
       if (err) console.error('Error creating complaints table', err.message);
     });
 
+    // Create notices table
+    db.run(`CREATE TABLE IF NOT EXISTS notices (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      owner_id INTEGER NOT NULL REFERENCES users(id),
+      hostel_name TEXT NOT NULL,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      category TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`, (err) => {
+      if (err) console.error('Error creating notices table', err.message);
+    });
+
+    // Create notice_reads table
+    db.run(`CREATE TABLE IF NOT EXISTS notice_reads (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      notice_id INTEGER NOT NULL REFERENCES notices(id),
+      student_id INTEGER NOT NULL REFERENCES users(id),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(notice_id, student_id)
+    )`, (err) => {
+      if (err) console.error('Error creating notice_reads table', err.message);
+    });
+
     // Create reviews table (FR-08)
     db.run(`CREATE TABLE IF NOT EXISTS reviews (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -123,9 +148,22 @@ const db = new sqlite3.Database(dbPath, (err) => {
       hostel_name TEXT NOT NULL,
       rating INTEGER NOT NULL,
       review_text TEXT,
+      cleanliness INTEGER,
+      food INTEGER,
+      staff INTEGER,
+      facilities INTEGER,
+      security INTEGER,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`, (err) => {
       if (err) console.error('Error creating reviews table', err.message);
+      else {
+        // Add columns for existing databases
+        db.run(`ALTER TABLE reviews ADD COLUMN cleanliness INTEGER`, () => {});
+        db.run(`ALTER TABLE reviews ADD COLUMN food INTEGER`, () => {});
+        db.run(`ALTER TABLE reviews ADD COLUMN staff INTEGER`, () => {});
+        db.run(`ALTER TABLE reviews ADD COLUMN facilities INTEGER`, () => {});
+        db.run(`ALTER TABLE reviews ADD COLUMN security INTEGER`, () => {});
+      }
     });
   }
 });

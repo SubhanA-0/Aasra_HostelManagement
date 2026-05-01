@@ -9,9 +9,10 @@ router.use(authenticateToken);
 router.get('/', roleGuard(['owner']), (req, res) => {
   // Students are tracked via users.room_id, not rooms.assigned_student_id
   const query = `
-    SELECT u.id, u.name, u.email, u.phone,
-           r.room_number, r.hostel_name, r.id as room_id,
-           u.created_at as enrollment_date
+    SELECT u.id, u.name, u.email, u.phone, u.cnic, u.address, u.university, u.emergency_contact, u.emergency_name,
+           r.room_number, r.hostel_name, r.id as room_id, r.rate as room_rate,
+           u.created_at as enrollment_date,
+           COALESCE((SELECT SUM(amount) FROM payments WHERE student_id = u.id AND status != 'paid'), 0) as remaining_fee
     FROM users u
     JOIN rooms r ON u.room_id = r.id
     WHERE r.owner_id = ? AND u.role = 'student'
@@ -44,10 +45,21 @@ router.put('/:id/archive', roleGuard(['owner']), (req, res) => {
           // Mark room as available if this was the last occupant
           db.run(
             'UPDATE rooms SET status = "available" WHERE id = ? AND (SELECT COUNT(*) FROM users WHERE room_id = ?) = 0',
-            [room.id, room.id]
+            [room.id, room.id],
+            (err) => {
+              if (err) console.error("Error updating room status:", err);
+            }
           );
 
-          res.json({ message: 'Student archived successfully (unassigned from room)' });
+          // Clear chat history between owner and student
+          db.run(
+            'DELETE FROM messages WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)',
+            [req.user.id, studentId, studentId, req.user.id],
+            (err) => {
+              if (err) console.error("Error clearing chat history:", err);
+              res.json({ message: 'Student archived successfully (unassigned from room)' });
+            }
+          );
         }
       );
     }

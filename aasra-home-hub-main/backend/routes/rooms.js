@@ -190,10 +190,15 @@ router.delete('/:id', authenticateToken, roleGuard(['owner']), (req, res) => {
     db.run('UPDATE users SET room_id = NULL, hostel_name = NULL WHERE room_id = ?', [roomId], (err) => {
       if (err) return res.status(500).json({ message: 'Error deallocating students' });
 
-      // Delete the room
-      db.run('DELETE FROM rooms WHERE id = ?', [roomId], (err) => {
-        if (err) return res.status(500).json({ message: 'Error deleting room' });
-        res.json({ message: 'Room deleted and students deallocated' });
+      // Delete messages associated with this room
+      db.run('DELETE FROM messages WHERE hostel_id = ?', [roomId], (err) => {
+        if (err) console.error("Error clearing room messages:", err);
+
+        // Delete the room
+        db.run('DELETE FROM rooms WHERE id = ?', [roomId], (err) => {
+          if (err) return res.status(500).json({ message: 'Error deleting room' });
+          res.json({ message: 'Room deleted and students deallocated' });
+        });
       });
     });
   });

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,57 +6,87 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Bell, Plus, Trash2, Megaphone } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import api from "@/lib/api";
 
 interface Notice {
-  id: string;
+  id: number;
   title: string;
   content: string;
-  category: "general" | "maintenance" | "event" | "urgent";
-  createdAt: string;
+  category: string;
+  hostel_name: string;
+  created_at: string;
 }
 
-const categoryColor = {
+const categoryColor: Record<string, string> = {
   general: "bg-secondary text-secondary-foreground",
   maintenance: "bg-yellow-100 text-yellow-700",
   event: "bg-blue-100 text-blue-700",
   urgent: "bg-red-100 text-red-700",
 };
 
-const mockNotices: Notice[] = [
-  { id: "1", title: "Water supply interruption", content: "Water supply will be interrupted on March 10th from 10am to 2pm due to tank cleaning. Please store water in advance.", category: "maintenance", createdAt: "2026-03-07" },
-  { id: "2", title: "Monthly hostel meeting", content: "All residents are requested to attend the monthly hostel meeting on March 15th at 6pm in the common hall.", category: "event", createdAt: "2026-03-06" },
-  { id: "3", title: "New hostel rules effective April", content: "Updated hostel rules regarding visitor timings and noise policy will be effective from April 1st. Details will be shared soon.", category: "general", createdAt: "2026-03-05" },
-  { id: "4", title: "Emergency: Fire drill scheduled", content: "A mandatory fire drill is scheduled for March 12th at 3pm. All residents must participate.", category: "urgent", createdAt: "2026-03-04" },
-];
-
 const OwnerNotices = () => {
   const { toast } = useToast();
-  const [notices, setNotices] = useState(mockNotices);
+  const [notices, setNotices] = useState<Notice[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ title: "", content: "", category: "general" as Notice["category"] });
+  const [form, setForm] = useState({ title: "", content: "", category: "general", hostelName: "" });
+  const [hostels, setHostels] = useState<string[]>([]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    fetchNotices();
+    fetchHostels();
+  }, []);
+
+  const fetchNotices = async () => {
+    try {
+      const res = await api.get("/notices");
+      setNotices(res.data.notices || []);
+    } catch {
+      toast({ title: "Failed to load notices", variant: "destructive" });
+    }
+  };
+
+  const fetchHostels = async () => {
+    try {
+      const res = await api.get("/rooms");
+      const rooms = res.data.rooms || [];
+      const uniqueHostels = [...new Set(rooms.map((r: any) => r.hostel_name))] as string[];
+      setHostels(uniqueHostels);
+      if (uniqueHostels.length > 0) {
+        setForm((prev) => ({ ...prev, hostelName: uniqueHostels[0] }));
+      }
+    } catch {
+      // silent
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.title || !form.content) {
+    if (!form.title || !form.content || !form.hostelName) {
       toast({ title: "Please fill all fields", variant: "destructive" });
       return;
     }
-    const newNotice: Notice = {
-      id: Date.now().toString(),
-      ...form,
-      createdAt: new Date().toISOString().split("T")[0],
-    };
-    setNotices((prev) => [newNotice, ...prev]);
-    setForm({ title: "", content: "", category: "general" });
-    setShowForm(false);
-    toast({ title: "Notice published successfully!" });
+    try {
+      await api.post("/notices", form);
+      toast({ title: "Notice published successfully!" });
+      setForm({ title: "", content: "", category: "general", hostelName: hostels[0] || "" });
+      setShowForm(false);
+      fetchNotices();
+    } catch {
+      toast({ title: "Failed to publish notice", variant: "destructive" });
+    }
   };
 
-  const handleDelete = (id: string) => {
-    setNotices((prev) => prev.filter((n) => n.id !== id));
-    toast({ title: "Notice deleted" });
+  const handleDelete = async (id: number) => {
+    try {
+      await api.delete(`/notices/${id}`);
+      toast({ title: "Notice deleted" });
+      fetchNotices();
+    } catch {
+      toast({ title: "Failed to delete notice", variant: "destructive" });
+    }
   };
 
   return (
@@ -77,6 +107,17 @@ const OwnerNotices = () => {
           <Card className="mb-8 border-primary/20">
             <CardContent className="p-6">
               <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Hostel</Label>
+                  <Select value={form.hostelName} onValueChange={(v) => setForm({ ...form, hostelName: v })}>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Select hostel" /></SelectTrigger>
+                    <SelectContent>
+                      {hostels.map((h) => (
+                        <SelectItem key={h} value={h}>{h}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="space-y-2">
                   <Label>Title</Label>
                   <Input placeholder="Notice title..." value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
@@ -114,12 +155,13 @@ const OwnerNotices = () => {
                       <Megaphone className="h-5 w-5 text-foreground" />
                     </div>
                     <div>
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <h3 className="font-semibold text-foreground">{notice.title}</h3>
-                        <Badge className={`text-xs border-0 capitalize ${categoryColor[notice.category]}`}>{notice.category}</Badge>
+                        <Badge className={`text-xs border-0 capitalize ${categoryColor[notice.category] || categoryColor.general}`}>{notice.category}</Badge>
+                        <Badge variant="outline" className="text-xs">{notice.hostel_name}</Badge>
                       </div>
                       <p className="text-sm text-muted-foreground mb-2">{notice.content}</p>
-                      <p className="text-xs text-muted-foreground">{new Date(notice.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
+                      <p className="text-xs text-muted-foreground">{new Date(notice.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
                     </div>
                   </div>
                   <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0" onClick={() => handleDelete(notice.id)}>

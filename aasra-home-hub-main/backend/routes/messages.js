@@ -20,6 +20,7 @@ router.post('/', (req, res) => {
     [req.user.id, receiverId, hostelId || null, content],
     function (err) {
       if (err) {
+        console.error('Message insert error:', err.message, { sender: req.user.id, receiver: receiverId, hostel: hostelId });
         return res.status(500).json({ message: 'Error sending message' });
       }
       res.status(201).json({
@@ -30,6 +31,8 @@ router.post('/', (req, res) => {
           receiver_id: receiverId,
           hostel_id: hostelId || null,
           content,
+          created_at: new Date().toISOString(),
+          is_read: 0,
         },
       });
     }
@@ -61,24 +64,30 @@ router.get('/', (req, res) => {
 
 // PUT /api/messages/read — Mark messages as read
 router.put('/read', (req, res) => {
-  const { senderId, hostelId } = req.body;
+  const { senderId, hostelId, roomIds } = req.body;
   const userId = req.user.id;
 
-  if (!senderId || !hostelId) {
-    return res.status(400).json({ message: 'senderId and hostelId are required' });
+  if (!senderId) {
+    return res.status(400).json({ message: 'senderId is required' });
   }
 
-  // Mark all messages from this sender to the current user regarding this hostel as read
-  db.run(
-    'UPDATE messages SET is_read = 1 WHERE sender_id = ? AND receiver_id = ? AND hostel_id = ?',
-    [senderId, userId, hostelId],
-    function (err) {
-      if (err) {
-        return res.status(500).json({ message: 'Error updating messages' });
-      }
-      res.json({ message: 'Messages marked as read' });
+  let query = 'UPDATE messages SET is_read = 1 WHERE sender_id = ? AND receiver_id = ?';
+  let params = [senderId, userId];
+
+  if (roomIds && Array.isArray(roomIds) && roomIds.length > 0) {
+    query += ` AND hostel_id IN (${roomIds.map(() => '?').join(',')})`;
+    params.push(...roomIds);
+  } else if (hostelId) {
+    query += ' AND hostel_id = ?';
+    params.push(hostelId);
+  }
+
+  db.run(query, params, function (err) {
+    if (err) {
+      return res.status(500).json({ message: 'Error updating messages' });
     }
-  );
+    res.json({ message: 'Messages marked as read' });
+  });
 });
 
 module.exports = router;

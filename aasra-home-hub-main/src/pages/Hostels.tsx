@@ -93,8 +93,17 @@ const Hostels = () => {
     return matchesSearch && matchesType;
   });
 
+  const checkAuth = () => {
+    if (!localStorage.getItem("token")) {
+      toast({ title: "Authentication required", description: "Please login to continue.", variant: "destructive" });
+      navigate("/login");
+      return false;
+    }
+    return true;
+  };
+
   const handleBook = async () => {
-    if (!selectedRoom) return;
+    if (!selectedRoom || !checkAuth()) return;
     setIsProcessing(true);
     
     try {
@@ -114,16 +123,20 @@ const Hostels = () => {
   };
 
   const loadChat = async (ownerId: number) => {
+    if (!checkAuth()) return;
     try {
       const res = await api.get('/messages');
+      const allMessages = res.data?.messages || [];
       // Filter thread between me and owner
-      const messages = res.data.messages.filter((m: any) => 
+      const messages = allMessages.filter((m: any) => 
         m.sender_id === ownerId || m.receiver_id === ownerId
       );
       setChatMessages(messages);
       setShowChat(true);
     } catch(err) {
-      toast({ title: "Failed to load messages", variant: "destructive" });
+      // Still open the chat so the student can send a first message
+      setChatMessages([]);
+      setShowChat(true);
     }
   };
 
@@ -293,7 +306,7 @@ const Hostels = () => {
                             <p className="font-display text-3xl font-bold text-primary">PKR {selectedRoom.price.toLocaleString()}</p>
                           </div>
                           {bookingStep === 1 ? (
-                            <Button size="lg" className="shadow-md h-12 px-8 text-base" onClick={() => setBookingStep(2)}>
+                            <Button size="lg" className="shadow-md h-12 px-8 text-base" onClick={() => { if (checkAuth()) setBookingStep(2); }}>
                               Book Now
                             </Button>
                           ) : null}

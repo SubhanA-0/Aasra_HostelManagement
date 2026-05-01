@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label";
 import { ClipboardList, AlertCircle, CheckCircle2, Clock, MessageSquare, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import api from "@/lib/api";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface Complaint {
   id: string;
@@ -66,6 +68,56 @@ const OwnerComplaints = () => {
     }
   };
 
+  const handleExportPDF = () => {
+    if (complaints.length === 0) {
+      toast({ title: "No complaints to export", variant: "destructive" });
+      return;
+    }
+
+    const doc = new jsPDF('landscape');
+    
+    doc.setFontSize(18);
+    doc.text("Aasra Hostel Management - Complaints Report", 14, 22);
+    
+    doc.setFontSize(11);
+    doc.setTextColor(100);
+    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 30);
+
+    const tableColumn = [
+      "ID", 
+      "Student", 
+      "Hostel", 
+      "Room", 
+      "Category", 
+      "Description", 
+      "Status", 
+      "Date"
+    ];
+    
+    const tableRows = complaints.map(c => [
+      `CMP-${c.id}`,
+      c.student_name || 'N/A',
+      c.hostel_name || 'N/A',
+      c.room_number || 'N/A',
+      c.category || 'N/A',
+      c.description || 'N/A',
+      c.status,
+      new Date(c.created_at).toLocaleDateString()
+    ]);
+
+    autoTable(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      startY: 35,
+      theme: 'grid',
+      styles: { fontSize: 9, cellPadding: 3 },
+      headStyles: { fillColor: [15, 23, 42], textColor: 255 } // using a dark blue/slate color
+    });
+
+    doc.save(`complaints_report_${new Date().toISOString().split('T')[0]}.pdf`);
+    toast({ title: "Report exported as PDF successfully" });
+  };
+
   const openCount = complaints.filter((c) => c.status === "Pending").length;
   const inProgressCount = complaints.filter((c) => c.status === "In Progress").length;
 
@@ -78,7 +130,7 @@ const OwnerComplaints = () => {
             <h1 className="font-display text-3xl font-bold text-foreground">Complaint Management</h1>
             <p className="text-muted-foreground mt-1">Review and resolve student complaints</p>
           </div>
-          <Button onClick={() => window.print()} variant="outline" className="font-body">
+          <Button onClick={handleExportPDF} variant="outline" className="font-body">
             <Printer className="mr-2 h-4 w-4" /> Export Complaints Report
           </Button>
         </div>

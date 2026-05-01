@@ -24,49 +24,6 @@ interface Contact {
   messages: Message[];
 }
 
-const ownerContacts: Contact[] = [
-  {
-    id: "1", name: "Zain Ahmed", role: "Student", lastMessage: "When is the rent due?", unread: 2,
-    messages: [
-      { id: "1", text: "Hello, I have a question about my room.", sender: "them", timestamp: "10:30 AM" },
-      { id: "2", text: "Sure, how can I help?", sender: "me", timestamp: "10:32 AM" },
-      { id: "3", text: "When is the rent due?", sender: "them", timestamp: "10:35 AM" },
-    ],
-  },
-  {
-    id: "2", name: "Dua Farooq", role: "Student", lastMessage: "Thanks for fixing the AC!", unread: 0,
-    messages: [
-      { id: "1", text: "The AC in room B-202 is not working.", sender: "them", timestamp: "Yesterday" },
-      { id: "2", text: "I'll send someone to fix it today.", sender: "me", timestamp: "Yesterday" },
-      { id: "3", text: "Thanks for fixing the AC!", sender: "them", timestamp: "Today" },
-    ],
-  },
-  {
-    id: "3", name: "Subhan Ali", role: "Student", lastMessage: "Can I switch rooms?", unread: 1,
-    messages: [
-      { id: "1", text: "Can I switch rooms?", sender: "them", timestamp: "9:00 AM" },
-    ],
-  },
-];
-
-const studentContacts: Contact[] = [
-  {
-    id: "1", name: "Adil Hassan", role: "Owner", lastMessage: "Rent is due by the 5th.", unread: 1,
-    messages: [
-      { id: "1", text: "Hello, when is the rent due?", sender: "me", timestamp: "10:30 AM" },
-      { id: "2", text: "Rent is due by the 5th of every month.", sender: "them", timestamp: "10:32 AM" },
-      { id: "3", text: "Rent is due by the 5th.", sender: "them", timestamp: "10:35 AM" },
-    ],
-  },
-  {
-    id: "2", name: "Izza Malik", role: "Owner", lastMessage: "Maintenance scheduled for tomorrow.", unread: 1,
-    messages: [
-      { id: "1", text: "Any updates on the water issue?", sender: "me", timestamp: "Yesterday" },
-      { id: "2", text: "Maintenance scheduled for tomorrow.", sender: "them", timestamp: "Today" },
-    ],
-  },
-];
-
 interface InboxProps {
   role: "student" | "owner";
 }
@@ -105,6 +62,10 @@ const Inbox = ({ role }: InboxProps) => {
               unread: 0,
               messages: [],
             };
+          }
+
+          if (m.receiver_id === currentUserId && (m.is_read === 0 || m.is_read === false)) {
+            contactMap[otherId].unread += 1;
           }
 
           contactMap[otherId].messages.push({
@@ -172,6 +133,10 @@ const Inbox = ({ role }: InboxProps) => {
                   onClick={() => {
                     setActiveContact(contact);
                     setContacts((prev) => prev.map((c) => c.id === contact.id ? { ...c, unread: 0 } : c));
+                    // Mark messages from this contact as read on the server
+                    if (contact.unread > 0) {
+                      api.put("/messages/read", { senderId: parseInt(contact.id) }).catch(() => {});
+                    }
                   }}
                   className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-secondary transition-colors text-left"
                 >

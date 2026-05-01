@@ -71,7 +71,7 @@ const OwnerHostels = () => {
     
     if (roomIds.length > 0) {
       try {
-        await api.put('/messages/read', { senderId: studentId, hostelId: roomIds[0] });
+        await api.put('/messages/read', { senderId: studentId, roomIds });
         setMessages(prev => prev.map(m => 
           (m.sender_id === studentId && roomIds.includes(m.hostel_id)) ? { ...m, is_read: 1 } : m
         ));

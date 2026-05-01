@@ -35,7 +35,7 @@ router.get('/', (req, res) => {
       SELECT c.*, u.name as student_name, r.room_number
       FROM complaints c 
       JOIN users u ON c.student_id = u.id
-      LEFT JOIN rooms r ON u.id = r.assigned_student_id
+      LEFT JOIN rooms r ON u.room_id = r.id
       WHERE c.hostel_name IN (SELECT DISTINCT hostel_name FROM rooms WHERE owner_id = ?)
       ORDER BY c.created_at DESC
     `, [req.user.id], (err, rows) => {

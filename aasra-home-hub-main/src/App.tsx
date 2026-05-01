@@ -21,6 +21,8 @@ import StudentNotices from "./pages/StudentNotices";
 import StudentRoom from "./pages/StudentRoom";
 import StudentProfile from "./pages/StudentProfile";
 import RateHostel from "./pages/RateHostel";
+import About from "./pages/About";
+import Contact from "./pages/Contact";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -37,6 +39,8 @@ const App = () => (
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<SignUp />} />
           <Route path="/hostels" element={<Hostels />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/contact" element={<Contact />} />
           {/* Owner routes */}
           <Route path="/owner" element={<ProtectedRoute allowedRole="owner"><OwnerDashboard /></ProtectedRoute>} />
           <Route path="/owner/hostels" element={<ProtectedRoute allowedRole="owner"><OwnerHostels /></ProtectedRoute>} />

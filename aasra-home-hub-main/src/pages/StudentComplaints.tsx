@@ -52,8 +52,7 @@ const StudentComplaints = () => {
   const fetchComplaints = async () => {
     try {
       const res = await api.get("/complaints");
-      const pending = (res.data.complaints || []).filter((c: Complaint) => c.status !== "Resolved");
-      setComplaints(pending);
+      setComplaints(res.data.complaints || []);
     } catch {
       toast({ title: "Failed to load complaints", variant: "destructive" });
     }
@@ -114,6 +113,7 @@ const StudentComplaints = () => {
                       <SelectItem value="Cleanliness">Cleanliness</SelectItem>
                       <SelectItem value="Noise">Noise Tracker</SelectItem>
                       <SelectItem value="Security">Security Issue</SelectItem>
+                      <SelectItem value="Other">Other Issues</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

@@ -6,15 +6,23 @@ import { Input } from "@/components/ui/input";
 import { Trash2, Search, GraduationCap, Building2, Phone, Mail, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import api from "@/lib/api";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface Student {
   id: string;
   name: string;
   email: string;
   phone: string;
+  cnic?: string;
+  address?: string;
+  university?: string;
+  emergency_contact?: string;
+  emergency_name?: string;
   room_number: string;
   hostel_name: string;
   enrollment_date: string;
+  remaining_fee?: number;
 }
 
 const OwnerStudents = () => {
@@ -46,6 +54,59 @@ const OwnerStudents = () => {
     }
   };
 
+  const handleExportPDF = () => {
+    if (students.length === 0) {
+      toast({ title: "No students to export", variant: "destructive" });
+      return;
+    }
+
+    const doc = new jsPDF('landscape');
+    
+    doc.setFontSize(18);
+    doc.text("Aasra Hostel Management - Student Report", 14, 22);
+    
+    doc.setFontSize(11);
+    doc.setTextColor(100);
+    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 30);
+
+    const tableColumn = [
+      "ID", 
+      "Name", 
+      "Phone", 
+      "CNIC", 
+      "Hostel", 
+      "Room", 
+      "Check-in", 
+      "Remaining Fee", 
+      "Emergency Contact"
+    ];
+    
+    const tableRows = students.map(s => [
+      `STU-${s.id}`,
+      s.name || 'N/A',
+      s.phone || 'N/A',
+      s.cnic || 'N/A',
+      s.hostel_name || 'N/A',
+      s.room_number || 'N/A',
+      new Date(s.enrollment_date).toLocaleDateString(),
+      s.remaining_fee ? `Rs. ${s.remaining_fee}` : '0',
+      s.emergency_contact ? `${s.emergency_name ? s.emergency_name + ' ' : ''}(${s.emergency_contact})` : 'N/A'
+    ]);
+
+    autoTable(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      startY: 35,
+      theme: 'grid',
+      styles: { fontSize: 9, cellPadding: 3 },
+      headStyles: { fillColor: [15, 23, 42], textColor: 255 } // using a dark blue/slate color
+    });
+
+    doc.save(`student_report_${new Date().toISOString().split('T')[0]}.pdf`);
+    toast({ title: "Report exported as PDF successfully" });
+  };
+
+
   const filtered = students.filter(s => 
     (s.name || "").toLowerCase().includes(search.toLowerCase()) || 
     (s.room_number || "").toLowerCase().includes(search.toLowerCase())
@@ -60,7 +121,7 @@ const OwnerStudents = () => {
             <h1 className="font-display text-3xl font-bold text-foreground">Student Management</h1>
             <p className="text-muted-foreground mt-1">View, manage, and archive assigned students</p>
           </div>
-          <Button onClick={() => window.print()} variant="outline" className="font-body">
+          <Button onClick={handleExportPDF} variant="outline" className="font-body">
             <Printer className="mr-2 h-4 w-4" /> Export Student Report
           </Button>
         </div>

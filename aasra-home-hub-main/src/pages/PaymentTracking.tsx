@@ -9,9 +9,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Search, IndianRupee, CalendarDays, AlertTriangle, CheckCircle2, Clock, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import api from "@/lib/api";
+import jsPDF from "jspdf";
 
 interface Payment {
   id: string;
+  studentId: string;
   studentName: string;
   hostelName: string;
   roomNumber: string;
@@ -43,9 +45,10 @@ const PaymentTracking = () => {
       .then((res) => {
         const rows = (res.data.payments || []).map((p: any) => ({
           id: String(p.id),
+          studentId: String(p.student_id),
           studentName: p.student_name || `Student #${p.student_id}`,
-          hostelName: "",
-          roomNumber: "",
+          hostelName: p.user_hostel_name || p.hostel_name || "N/A",
+          roomNumber: p.room_number || "N/A",
           amount: p.amount,
           dueDate: p.date,
           status: p.status as Payment["status"],
@@ -88,6 +91,66 @@ const PaymentTracking = () => {
     } finally {
       setProcessingId(null);
     }
+  };
+
+  const downloadReceipt = (payment: Payment) => {
+    const doc = new jsPDF();
+    
+    // Header
+    doc.setFontSize(22);
+    doc.setTextColor(41, 128, 185); // A nice blue header
+    doc.text("Aasra Home Hub", 20, 20);
+    
+    doc.setFontSize(16);
+    doc.setTextColor(50, 50, 50);
+    doc.text("Official Payment Receipt", 20, 30);
+    
+    doc.setLineWidth(0.5);
+    doc.line(20, 35, 190, 35);
+    
+    // Receipt Details
+    doc.setFontSize(12);
+    doc.text(`Receipt ID: ${payment.receiptId}`, 20, 45);
+    doc.text(`Date of Issue: ${new Date().toLocaleDateString()}`, 20, 52);
+    
+    // Student & Room Info
+    doc.setFontSize(14);
+    doc.setTextColor(0, 0, 0);
+    doc.text("Student Information", 20, 65);
+    
+    doc.setFontSize(12);
+    doc.setTextColor(80, 80, 80);
+    doc.text(`Name: ${payment.studentName}`, 20, 75);
+    doc.text(`Student ID: #${payment.studentId}`, 20, 82);
+    if (payment.hostelName !== "N/A") {
+      doc.text(`Hostel: ${payment.hostelName}`, 20, 89);
+      doc.text(`Room Number: ${payment.roomNumber}`, 20, 96);
+    }
+    
+    // Payment Info
+    const startY = payment.hostelName !== "N/A" ? 110 : 95;
+    doc.setFontSize(14);
+    doc.setTextColor(0, 0, 0);
+    doc.text("Payment Details", 20, startY);
+    
+    doc.setFontSize(12);
+    doc.setTextColor(80, 80, 80);
+    doc.text(`Fee Month: ${payment.month || payment.dueDate}`, 20, startY + 10);
+    doc.text(`Status: PAID`, 20, startY + 17);
+    
+    doc.setLineWidth(0.5);
+    doc.line(20, startY + 25, 190, startY + 25);
+    
+    doc.setFontSize(16);
+    doc.setTextColor(39, 174, 96); // Green amount
+    doc.text(`Total Amount Paid: PKR ${payment.amount.toLocaleString()}`, 20, startY + 35);
+    
+    // Footer
+    doc.setFontSize(10);
+    doc.setTextColor(150, 150, 150);
+    doc.text("This is an electronically generated receipt and requires no signature.", 20, 280);
+    
+    doc.save(`${payment.receiptId}.pdf`);
   };
 
   return (
@@ -194,13 +257,21 @@ const PaymentTracking = () => {
                           <DialogHeader>
                             <DialogTitle className="font-display">Payment Receipt</DialogTitle>
                           </DialogHeader>
-                          <div className="space-y-3 text-sm">
-                            <div className="flex justify-between"><span className="text-muted-foreground">Receipt ID</span><span className="font-medium">{payment.receiptId}</span></div>
-                            <div className="flex justify-between"><span className="text-muted-foreground">Student</span><span className="font-medium">{payment.studentName}</span></div>
-                            <div className="flex justify-between"><span className="text-muted-foreground">Month</span><span className="font-medium">{payment.month || payment.dueDate}</span></div>
-                            <hr className="border-border" />
-                            <div className="flex justify-between text-base"><span className="font-semibold">Amount Paid</span><span className="font-display font-bold text-primary">PKR {payment.amount.toLocaleString()}</span></div>
-                          </div>
+                            <div className="space-y-3 text-sm">
+                              <div className="flex justify-between"><span className="text-muted-foreground">Receipt ID</span><span className="font-medium">{payment.receiptId}</span></div>
+                              <div className="flex justify-between"><span className="text-muted-foreground">Student Name</span><span className="font-medium">{payment.studentName}</span></div>
+                              <div className="flex justify-between"><span className="text-muted-foreground">Student ID</span><span className="font-medium">#{payment.studentId}</span></div>
+                              {payment.hostelName !== "N/A" && (
+                                <div className="flex justify-between"><span className="text-muted-foreground">Hostel & Room</span><span className="font-medium">{payment.hostelName} - Room {payment.roomNumber}</span></div>
+                              )}
+                              <div className="flex justify-between"><span className="text-muted-foreground">Month</span><span className="font-medium">{payment.month || payment.dueDate}</span></div>
+                              <hr className="border-border" />
+                              <div className="flex justify-between text-base"><span className="font-semibold">Amount Paid</span><span className="font-display font-bold text-primary">PKR {payment.amount.toLocaleString()}</span></div>
+                            </div>
+                            <Button className="w-full mt-4 shadow-sm h-11" onClick={() => downloadReceipt(payment)}>
+                              <Download className="h-4 w-4 mr-2" />
+                              Download PDF
+                            </Button>
                         </DialogContent>
                       </Dialog>
                     ) : payment.status === "challan_generated" ? (
